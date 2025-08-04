@@ -11,6 +11,13 @@ import logging
 import re
 import urllib.parse
 
+# Try to import dotenv for .env file support, but don't fail if not available
+try:
+    from dotenv import load_dotenv
+    load_dotenv()  # Load .env file if it exists
+except ImportError:
+    pass  # dotenv not installed, continue without .env support
+
 mode = "local"
 
 if mode == "vpn":
@@ -51,7 +58,15 @@ if mode == "local":
 
     def nsefetch(payload):
         def get_proxy_list():
-            """Get proxy list from environment variable NSE_PROXY_LIST"""
+            """Get proxy list from environment variable NSE_PROXY_LIST
+            
+            Supports loading from:
+            1. Environment variables (NSE_PROXY_LIST)
+            2. .env file (if python-dotenv is installed)
+            
+            Format: USER:PASS@HOST:PORT,USER2:PASS2@HOST2:PORT2
+            Example: john:secret@proxy1.com:8080,jane:pass@proxy2.com:3128
+            """
             proxy_env = os.environ.get("NSE_PROXY_LIST", "")
             if not proxy_env:
                 return []

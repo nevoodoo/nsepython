@@ -1,3 +1,4 @@
 requests
 pandas
 scipy
+python-dotenv
