@@ -14,6 +14,7 @@ import urllib.parse
 # Try to import dotenv for .env file support, but don't fail if not available
 try:
     from dotenv import load_dotenv
+
     load_dotenv()  # Load .env file if it exists
 except ImportError:
     pass  # dotenv not installed, continue without .env support
@@ -59,11 +60,11 @@ if mode == "local":
     def nsefetch(payload):
         def get_proxy_list():
             """Get proxy list from environment variable NSE_PROXY_LIST
-            
+
             Supports loading from:
             1. Environment variables (NSE_PROXY_LIST)
             2. .env file (if python-dotenv is installed)
-            
+
             Format: USER:PASS@HOST:PORT,USER2:PASS2@HOST2:PORT2
             Example: john:secret@proxy1.com:8080,jane:pass@proxy2.com:3128
             """
@@ -93,19 +94,20 @@ if mode == "local":
         # Get proxy configuration
         proxy_list = get_proxy_list()
 
-        # Try with proxy list first (with rotation), then no proxy
-        attempts = []
-
+        # Try proxies one by one until one works, then stop
+        proxy_attempts = []
         if proxy_list:
-            # Add each proxy from the list
-            for proxy_url in proxy_list:
-                attempts.append({"http": proxy_url, "https": proxy_url})
+            # Shuffle the proxy list for random order
+            shuffled_proxies = proxy_list.copy()
+            random.shuffle(shuffled_proxies)
+            for proxy_url in shuffled_proxies:
+                proxy_attempts.append({"http": proxy_url, "https": proxy_url})
 
-        # Add no-proxy attempt as fallback
-        attempts.append({})
+        # Add no-proxy as final fallback
+        proxy_attempts.append({})
 
-        # Try each proxy configuration
-        for i, proxy_config in enumerate(attempts):
+        # Try each proxy until one succeeds
+        for proxy_config in proxy_attempts:
             try:
                 s = requests.Session()
 
@@ -118,16 +120,14 @@ if mode == "local":
                     "https://www.nseindia.com/option-chain", headers=headers, timeout=10
                 )
                 output = s.get(payload, headers=headers, timeout=10).json()
-                return output
+                return output  # Success! Return immediately
 
-            except (requests.exceptions.RequestException, ValueError) as e:
-                # If this is the last attempt, return empty dict
-                if i == len(attempts) - 1:
-                    output = {}
-                # Otherwise, continue to next proxy
+            except (requests.exceptions.RequestException, ValueError):
+                # This proxy failed, try the next one
                 continue
 
-        return output
+        # All proxies failed
+        return {}
 
 
 # headers = {
